@@ -7,8 +7,8 @@
 
 // Wifi info
 
-const char* ssid = "Proximus-Home-2A98";
-const char* password = "wh4sc93p2n44u";
+const char* ssid = "SSID vervangen";
+const char* password = "wachtwoord vervangen";
 
 // server info
 const char* serverAddress = "http://www.strapbadge.stijnally.net";
