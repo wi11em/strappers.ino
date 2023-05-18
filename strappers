@@ -81,7 +81,7 @@ bool sendDataToServer(const String& data) {
   }
   
   // Create the GET request path
-  String getRequest = String(endpoint) + "?data=" + data;
+  String getRequest = String(endpoint) + "UID:" + data;
 
   // Send the HTTP GET request to the server
   client.print("GET ");
