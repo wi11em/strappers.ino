@@ -12,7 +12,7 @@ const char* password = "vervangen door wachtwoord";
 
 // server info
 const char* serverAddress = "www.strapbadge.stijnally.net";
-const char* endpoint = "/api_badge/%7B'UID':";
+const char* endpoint = "/api_badge/";
 
 // MFRC522 - instellen
 #define SS_PIN          15         // Pin: D8
