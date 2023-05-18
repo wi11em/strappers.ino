@@ -11,7 +11,7 @@ const char* ssid = "vervangen door SSID";
 const char* password = "vervangen door wachtwoord";
 
 // server info
-const char* serverAddress = "http://www.strapbadge.stijnally.net";
+const char* serverAddress = "www.strapbadge.stijnally.net";
 const char* endpoint = "/api_badge/%7B'UID':";
 
 // MFRC522 - instellen
@@ -75,7 +75,7 @@ void loop() {
 }
 
 bool sendDataToServer(const String& data) {
-  if (!client.connect(serverAddress, 80)) {
+  if (!client.connect(serverAddress, 443)) {
     Serial.println("Connection failed");
     return false;
   }
@@ -94,8 +94,9 @@ bool sendDataToServer(const String& data) {
   delay(100);
   
   // Check for a valid HTTP response
-  String line = client.readStringUntil('\n');
-  if (line.indexOf("200 OK") == -1) {
+ String line = client.readStringUntil('\n');
+ Serial.println("Response line: " + line);
+ if (line.indexOf("200 OK") == -1) {
     Serial.println("Invalid HTTP response");
     return false;
   }
