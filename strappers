@@ -1,11 +1,10 @@
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WiFiMulti.h>
-#include <ESP8266HTTPClient.h>
 #include <WiFiClient.h>
 #include <SPI.h>
 #include <MFRC522.h>
-#include <ArduinoJson.h>
+#include <ArduinoJson.h>  // Ensure this line is included
 
 ESP8266WiFiMulti WiFiMulti;
 MFRC522 mfrc522(15, 0); // Change SS_PIN and RST_PIN to your setup
@@ -31,9 +30,7 @@ void setup()
   }
 
   WiFi.mode(WIFI_STA);
-
-WiFiMulti.addAP("replace with SSID", "replace with password"); // Replace with your WiFi credentials
-
+  WiFiMulti.addAP("WIFI", "Password"); // Replace with your WiFi credentials
   SPI.begin();                       // Initialize SPI bus
   mfrc522.PCD_Init();                 // Initialize MFRC522 RFID module
 
@@ -59,68 +56,91 @@ void loop()
         uid += String(mfrc522.uid.uidByte[i], HEX);
       }
 
+      // Print the UID to ensure it's correct
+      Serial.print("UID: ");
+      Serial.println(uid);
+
       mfrc522.PICC_HaltA();
       WiFiClient client;
-      HTTPClient http;
 
-      String url = "http://www.strapbadge.stijnally.net/api_badge/uid=" + uid;
+      String url = "https://www.t.strapbadge.be/api_badge/uid=" + uid;
 
-      Serial.print("[HTTP] Begin...\n");
-      if (http.begin(client, url))
+      // Debugging: print the URL to ensure it's correctly formed
+      Serial.print("Request URL: ");
+      Serial.println(url);
+
+      if (client.connect("www.t.strapbadge.be", 80))
       {
-        int httpCode = http.GET();
+        // Manually construct HTTP GET request
+        client.print(String("GET ") + "/api_badge/uid=" + uid + " HTTP/1.1\r\n" +
+                     "Host: www.t.strapbadge.be\r\n" +
+                     "Connection: close\r\n" +
+                     "Accept: application/json\r\n" +
+                     "User-Agent: ESP8266\r\n" +
+                     "\r\n");
 
-        if (httpCode > 0)
+        Serial.println("[HTTP] Request sent");
+
+        while (client.connected())
         {
-          Serial.printf("[HTTP] GET code: %d\n", httpCode);
-
-          if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY)
-          {
-            String payload = http.getString();
-
-            DynamicJsonDocument jsonDocument(1024);
-            DeserializationError error = deserializeJson(jsonDocument, payload);
-
-            digitalWrite(buzzerPin, HIGH); // Turn on the buzzer
-            delay(250);
-            digitalWrite(buzzerPin, LOW); // Turn off the buzzer
-
-            if (error)
-            {
-              Serial.printf("[JSON] Parsing failed! Error code: %s\n", error.c_str());
-            }
-            else
-            {
-              const char *name = jsonDocument["name"];
-              const char *email = jsonDocument["email"];
-              int age = jsonDocument["age"];
-
-              Serial.println("Received data:");
-              Serial.print("Name: ");
-              Serial.println(name);
-              Serial.print("Email: ");
-              Serial.println(email);
-              Serial.print("Age: ");
-              Serial.println(age);
-            }
+          String line = client.readStringUntil('\n');
+          if (line == "\r") {
+            Serial.println("[HTTP] Headers received");
+            break;
           }
+        }
+
+        // Read response
+        String response = client.readString();
+        Serial.println("Response:");
+        Serial.println(response);
+
+        client.stop();
+
+        // Parse JSON response
+        StaticJsonDocument<512> jsonDocument;
+        DeserializationError error = deserializeJson(jsonDocument, response);
+
+        if (error)
+        {
+          Serial.printf("JSON parsing failed: %s\n", error.c_str());
         }
         else
         {
-          Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+          const char* received_message = jsonDocument["received_message"];
+          int success_code = jsonDocument["succes_code"];
+          const char* school_name = jsonDocument["school_name"];
+          const char* class_name = jsonDocument["class_name"];
+          int qty_class_day = jsonDocument["qty_class_day"];
+          int qty_school_day = jsonDocument["qty_school_day"];
+          int qty_class_week = jsonDocument["qty_class_week"];
+          int qty_school_week = jsonDocument["qty_school_week"];
+
+          Serial.println("Parsed data:");
+          Serial.printf("Received Message: %s\n", received_message);
+          Serial.printf("Success Code: %d\n", success_code);
+          Serial.printf("School Name: %s\n", school_name);
+          Serial.printf("Class Name: %s\n", class_name);
+          Serial.printf("Qty Class Day: %d\n", qty_class_day);
+          Serial.printf("Qty School Day: %d\n", qty_school_day);
+          Serial.printf("Qty Class Week: %d\n", qty_class_week);
+          Serial.printf("Qty School Week: %d\n", qty_school_week);
         }
 
-        http.end();
+        // Turn on the buzzer if the response is received
+        digitalWrite(buzzerPin, HIGH);
+        delay(250);
+        digitalWrite(buzzerPin, LOW);
+
+        // Reset the flag to allow prompt for next card presentation
+        cardPresented = false;
       }
       else
       {
-        Serial.println("[HTTP] Unable to connect");
+        Serial.println("[HTTP] Connection failed");
       }
-
-      // Reset the flag to allow prompt for next card presentation
-      cardPresented = false;
     }
   }
-        
+
   delay(1000);
 }
